@@ -1,6 +1,6 @@
 # Andrews Batch Reader
 
-Crawls Andrew Ng's "The Batch" newsletter and generates 6-month transcript bundles optimized for text-to-speech services (such as ElevenLabs), so you can listen to them in a batch.
+Crawls [Andrew Ng's "The Batch" newsletter](https://www.deeplearning.ai/the-batch/tag/letters/) and generates 6-month transcript bundles optimized for text-to-speech services (such as ElevenLabs), so you can listen to them in a batch.
 
 ## Repository Structure
 
