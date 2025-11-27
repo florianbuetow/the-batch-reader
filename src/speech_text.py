@@ -567,8 +567,9 @@ def normalize_acronyms(text: str) -> str:
     # Convert letter acronyms to spaced letters
     for acronym in LETTER_ACRONYMS:
         spaced = ' '.join(acronym.upper())
-        # Case insensitive match for the acronym as a whole word
-        text = re.sub(rf'\b{acronym}\b', spaced, text, flags=re.IGNORECASE)
+        # Case SENSITIVE match - only match uppercase acronyms, not common words like "it"
+        # Use negative lookahead to exclude possessives/contractions like "IT's"
+        text = re.sub(rf'\b{acronym}\b(?!\')', spaced, text)
 
     return text
 

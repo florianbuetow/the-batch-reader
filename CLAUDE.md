@@ -81,6 +81,13 @@ data/output/
 └── <year>_jan_jun.txt / <year>_jul_dec.txt  # 6-month bundles
 ```
 
+## Testing Guidelines
+
+- **ALWAYS write unit tests** for bug fixes and new features
+- Add tests to `tests/test_speech_text.py`
+- Run `make test` to verify all tests pass
+- Never skip test creation - if you fixed a bug, write a test that would have caught it
+
 ## Git Commit Guidelines
 
 - Never include AI attribution ("Generated with Claude Code", "Co-Authored-By: Claude")

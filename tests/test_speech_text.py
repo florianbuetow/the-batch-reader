@@ -384,6 +384,22 @@ class TestNormalizeAcronyms:
         assert normalize_acronyms("The API endpoint") == "The A P I endpoint"
         assert normalize_acronyms("Train the LLM") == "Train the L L M"
 
+    def test_it_pronoun_not_converted(self):
+        """Ensure 'it' (lowercase pronoun) is not converted to 'I T'."""
+        assert normalize_acronyms("it works well") == "it works well"
+        assert normalize_acronyms("use it for this") == "use it for this"
+        assert normalize_acronyms("I find it helpful") == "I find it helpful"
+
+    def test_it_possessive_not_converted(self):
+        """Ensure "IT's" (possessive/contraction) is not converted to "I T's"."""
+        assert normalize_acronyms("IT's sometimes faster") == "IT's sometimes faster"
+        assert normalize_acronyms("it's a good idea") == "it's a good idea"
+
+    def test_it_acronym_converted(self):
+        """Ensure 'IT' (Information Technology) is converted when standalone."""
+        assert normalize_acronyms("The IT department") == "The I T department"
+        assert normalize_acronyms("work in IT") == "work in I T"
+
 
 # =============================================================================
 # Rule 9: Flatten lists
