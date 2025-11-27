@@ -83,13 +83,25 @@ Convert articles to speech-friendly text:
 make format
 ```
 
-This converts articles by:
-- Removing markdown/HTML formatting
-- Spelling out numbers (42 → forty-two)
-- Converting dates (10/12/2025 → October twelve, twenty twenty-five)
-- Normalizing symbols ($100 → one hundred dollars, 42% → forty-two percent)
-- Expanding acronyms (FBI → F B I, etc. → et cetera)
-- Removing characters that harm speech quality ({}<>[])
+This converts articles by applying the following transformations:
+
+| **Rule** | **Before** | **After** |
+|----------|-----------|-----------|
+| **Markdown** | `**bold** text` | `bold text` |
+| **Links** | `[Click here](url)` | `Click here` |
+| **Numbers** | `42` | `forty-two` |
+| **Years** | `2025` | `twenty twenty-five` |
+| **Dates** | `10/12/2025` | `October twelve, twenty twenty-five` |
+| **Currency** | `$100` | `one hundred dollars` |
+| **Percentages** | `42%` | `forty-two percent` |
+| **Acronyms** | `FBI` | `F B I` |
+| **Abbreviations** | `etc.` | `et cetera` |
+| **Symbols** | `&` | `and` |
+| **Time** | `9:30 PM` | `nine thirty p m` |
+| **Dangerous chars** | `{code}` | `code` |
+| **Bullet lists** | `- First`<br>`- Second` | `Firstly, first. Secondly, second.` |
+| **Special Unicode** | `→` | `arrow` |
+| **Emojis** | `😊` | *(removed)* |
 
 ### Bundle
 
