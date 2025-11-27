@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Logs
+*.log
+
+# Virtual environment
+.venv/
+
+# Data
+data/input/
+data/output/
