@@ -7,6 +7,7 @@ import pytest
 from src.speech_text import (
     strip_markdown,
     strip_html,
+    remove_parenthetical,
     normalize_whitespace,
     remove_dangerous_punctuation,
     strip_control_characters,
@@ -97,6 +98,66 @@ class TestStripHtml:
         """Decode numeric HTML entities."""
         assert strip_html("&#39;") == "'"
         assert strip_html("&#65;") == "A"
+
+
+class TestRemoveParenthetical:
+    """Tests for remove_parenthetical function.
+
+    Parenthetical text provides optional context that isn't essential
+    for text-to-speech and can be distracting when read aloud.
+    """
+
+    def test_removes_simple_parenthetical(self):
+        """Remove simple text in parentheses."""
+        assert remove_parenthetical("The FBI (Federal Bureau of Investigation)") == "The FBI"
+        assert remove_parenthetical("lambda (λ)") == "lambda"
+
+    def test_removes_greek_letter_duplicates(self):
+        """Remove parenthetical duplicates like λ (lambda) and Δ (delta)."""
+        assert remove_parenthetical("λ (lambda)") == "λ"
+        assert remove_parenthetical("Δ (delta)") == "Δ"
+        assert remove_parenthetical("θ (theta)") == "θ"
+
+    def test_removes_multiple_parentheticals(self):
+        """Remove multiple parenthetical expressions in a sentence."""
+        input_text = "The API (Application Programming Interface) uses REST (Representational State Transfer)"
+        expected = "The API uses REST"
+        assert remove_parenthetical(input_text) == expected
+
+    def test_preserves_text_without_parentheses(self):
+        """Preserve text that has no parentheses."""
+        text = "This is a simple sentence."
+        assert remove_parenthetical(text) == text
+
+    def test_removes_nested_parentheses(self):
+        """Remove nested parenthetical expressions."""
+        # Note: this might be tricky depending on implementation
+        assert remove_parenthetical("The value (which includes tax (12%))") == "The value"
+
+    def test_removes_parenthetical_at_end(self):
+        """Remove parenthetical at end of sentence."""
+        assert remove_parenthetical("See the documentation (page 42).") == "See the documentation."
+
+    def test_removes_parenthetical_at_start(self):
+        """Remove parenthetical at start of sentence."""
+        assert remove_parenthetical("(Note: this is important) The main point is here.") == "The main point is here."
+
+    def test_cleans_up_extra_whitespace(self):
+        """Clean up extra whitespace after removing parentheses."""
+        assert remove_parenthetical("The FBI  (Federal Bureau)  investigated") == "The FBI investigated"
+        assert remove_parenthetical("Text (removed)  more text") == "Text more text"
+
+    def test_preserves_sentence_structure(self):
+        """Preserve sentence structure after removing parentheses."""
+        input_text = "The parameter λ (lambda) controls frequency."
+        expected = "The parameter λ controls frequency."
+        assert remove_parenthetical(input_text) == expected
+
+    def test_multiple_lines_with_parentheses(self):
+        """Remove parentheses across multiple lines."""
+        input_text = "First line (comment one).\nSecond line (comment two)."
+        expected = "First line.\nSecond line."
+        assert remove_parenthetical(input_text) == expected
 
 
 # =============================================================================

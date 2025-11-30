@@ -89,6 +89,66 @@ def strip_html(text: str) -> str:
     return text
 
 
+def remove_parenthetical(text: str) -> str:
+    """Remove parenthetical text from text.
+
+    Parenthetical expressions provide optional context that isn't essential
+    for text-to-speech and can be distracting when read aloud.
+
+    Examples:
+    - λ (lambda) -> λ
+    - FBI (Federal Bureau of Investigation) -> FBI
+    - The value (which includes tax (12%)) -> The value
+
+    Handles:
+    - Simple parentheses
+    - Nested parentheses
+    - Multiple parentheses in same text
+    - Cleans up extra whitespace after removal
+    """
+    # Remove parenthetical expressions (including nested ones)
+    # This regex removes text in parentheses by matching the outermost parens
+    # and everything inside them, including any nested parens
+    while '(' in text:
+        # Match opening paren, then anything until the matching closing paren
+        # Use a simple approach: find each '(' and match to its closing ')'
+        # accounting for nesting
+        start = text.find('(')
+        if start == -1:
+            break
+
+        # Find matching closing paren
+        depth = 1
+        pos = start + 1
+        while pos < len(text) and depth > 0:
+            if text[pos] == '(':
+                depth += 1
+            elif text[pos] == ')':
+                depth -= 1
+            pos += 1
+
+        if depth == 0:
+            # Found matching closing paren
+            text = text[:start] + text[pos:]
+        else:
+            # Unmatched paren, just remove it
+            text = text[:start] + text[start+1:]
+
+    # Clean up extra whitespace
+    # Remove multiple spaces (but preserve newlines)
+    text = re.sub(r'[ \t]+', ' ', text)
+    # Remove space before punctuation
+    text = re.sub(r' +([.,;:!?])', r'\1', text)
+    # Clean up leading/trailing whitespace on each line
+    lines = text.split('\n')
+    lines = [line.strip() for line in lines]
+    text = '\n'.join(lines)
+    # Final strip
+    text = text.strip()
+
+    return text
+
+
 # =============================================================================
 # Rule 2: Normalize whitespace
 # =============================================================================
@@ -719,6 +779,7 @@ class SpeechTextConverter:
         # 1. Strip markup
         text = strip_html(text)
         text = strip_markdown(text)
+        text = remove_parenthetical(text)
 
         # 2. Normalize whitespace
         text = normalize_whitespace(text)
