@@ -15,6 +15,7 @@ make run                # Run full pipeline: init, crawl, format
 make crawl              # Download new articles
 make format             # Convert to speech-friendly text
 make bundle             # Combine speech-friendly text into 6-month bundles
+make fetch URL=<url>    # Fetch and convert a one-off URL
 make test               # Run all tests
 make clean              # Remove cached/temp files
 ```
@@ -64,6 +65,10 @@ Combines speech-friendly text into 6-month bundles (e.g., `2024_jan_jun.txt`, `2
 Articles within each file are ordered by date (newest first), with intro text:
 "The first/following article was published on [DATE]: [TITLE]"
 
+### Fetch (`src/fetch_article.py`)
+
+Fetches and converts a single article from any URL. Uses `requests` and `BeautifulSoup` to download and extract content, then applies `SpeechTextConverter` transformations. Output saved to `data/output/misc/` with auto-generated filename based on date and title.
+
 ### Post-Processing Hook (`hook.sh`)
 
 Called by `make bundle` after generating files. Default behavior on macOS:
@@ -78,6 +83,7 @@ data/input/articles/<slug>/
 
 data/output/
 ├── transcripts/<yyyymmdd>_<slug>.txt  # Individual speech-friendly transcripts
+├── misc/<yyyymmdd>_<title>.txt         # Fetched articles
 └── <year>_jan_jun.txt / <year>_jul_dec.txt  # 6-month bundles
 ```
 

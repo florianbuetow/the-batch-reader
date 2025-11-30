@@ -57,6 +57,7 @@ make help               # Show all available commands
 make crawl              # Download articles from The Batch (incremental)
 make format             # Convert articles to speech-friendly text
 make bundle             # Combine speech-friendly text into 6-month bundles
+make fetch URL=<url>    # Fetch and convert a one-off URL
 make test               # Run all tests
 make clean              # Remove cached/temp files
 ```
@@ -115,6 +116,26 @@ This creates separate files for each half-year period (e.g., `2024_jan_jun.txt`,
 Each file includes intro text for articles: "The first/following article was published on [DATE]: [TITLE]"
 
 After generating bundles, the `hook.sh` script is called automatically (see [Post-Processing Hook](#post-processing-hook)).
+
+### Fetch Article
+
+Convert a single article from any URL to speech-friendly text:
+
+```bash
+make fetch URL=https://example.com/article
+```
+
+This will:
+- Download the article from the specified URL
+- Extract the main content using BeautifulSoup
+- Apply all speech-friendly transformations
+- Save the result to `data/output/misc/` with an auto-generated filename
+
+Example:
+```bash
+make fetch URL=https://justoffbyone.com/posts/math-of-why-you-cant-focus-at-work/
+# Creates: data/output/misc/20251128_the_math_of_why_you_cant_focus_at_work_off_by_one.txt
+```
 
 ### Post-Processing Hook
 
