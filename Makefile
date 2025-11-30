@@ -1,4 +1,4 @@
-.PHONY: help init run crawl format bundle test clean
+.PHONY: help init run crawl format bundle fetch test clean
 
 help:
 	@echo ""
@@ -7,6 +7,7 @@ help:
 	@echo "  crawl      Download new articles"
 	@echo "  format     Convert to speech-friendly text"
 	@echo "  bundle     Combine speech-friendly text into 6-month bundles"
+	@echo "  fetch      Fetch and convert a URL (use: make fetch URL=...)"
 	@echo "  test       Run tests"
 	@echo "  clean      Remove cached/temp files"
 	@echo ""
@@ -34,6 +35,17 @@ bundle: clean
 	@echo ""
 	@uv run src/combine_transcripts.py
 	@./hook.sh
+	@echo ""
+
+fetch:
+	@echo ""
+ifndef URL
+	@echo "Error: URL parameter required"
+	@echo "Usage: make fetch URL=https://example.com/article"
+	@echo ""
+	@exit 1
+endif
+	@uv run src/fetch_article.py "$(URL)"
 	@echo ""
 
 test:
