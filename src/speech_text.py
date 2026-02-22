@@ -8,10 +8,27 @@ import re
 import unicodedata
 from typing import List
 
+try:
+    from languages import get_language
+except ImportError:
+    from src.languages import get_language
+
 
 # =============================================================================
 # Rule 1: Strip HTML/Markdown
 # =============================================================================
+
+def remove_code_blocks(text: str, lang: dict | None = None) -> str:
+    """Replace code blocks with placeholder message.
+
+    Must be called BEFORE strip_html to prevent HTML regex from
+    matching across code block boundaries (e.g., '<1ms' in text
+    matching to '->' in code).
+    """
+    if lang is None:
+        lang = get_language('en')
+    return re.sub(r'```[\s\S]*?```', lang['code_block_placeholder'], text)
+
 
 def strip_markdown(text: str) -> str:
     """Remove Markdown formatting from text.
@@ -27,8 +44,7 @@ def strip_markdown(text: str) -> str:
     - Strikethrough ~~text~~
     - Backticks
     """
-    # Remove code blocks first (before other processing)
-    text = re.sub(r'```[\s\S]*?```', '', text)
+    # Note: code blocks are removed by remove_code_blocks() before this runs
 
     # Remove inline code
     text = re.sub(r'`([^`]+)`', r'\1', text)
@@ -76,9 +92,9 @@ def strip_html(text: str) -> str:
         '&apos;': "'",
         '&nbsp;': ' ',
         '&#39;': "'",
-        '&mdash;': '—',
-        '&ndash;': '–',
-        '&hellip;': '…',
+        '&mdash;': '\u2014',
+        '&ndash;': '\u2013',
+        '&hellip;': '\u2026',
     }
     for entity, char in html_entities.items():
         text = text.replace(entity, char)
@@ -96,7 +112,7 @@ def remove_parenthetical(text: str) -> str:
     for text-to-speech and can be distracting when read aloud.
 
     Examples:
-    - λ (lambda) -> λ
+    - \u03bb (lambda) -> \u03bb
     - FBI (Federal Bureau of Investigation) -> FBI
     - The value (which includes tax (12%)) -> The value
 
@@ -253,46 +269,46 @@ def replace_special_unicode(text: str) -> str:
     """
     replacements = {
         # Arrows
-        '→': ' arrow ',
-        '←': ' arrow ',
-        '↑': ' arrow ',
-        '↓': ' arrow ',
-        '⇒': ' implies ',
-        '⇐': ' implied by ',
-        '↔': ' bidirectional arrow ',
+        '\u2192': ' arrow ',
+        '\u2190': ' arrow ',
+        '\u2191': ' arrow ',
+        '\u2193': ' arrow ',
+        '\u21d2': ' implies ',
+        '\u21d0': ' implied by ',
+        '\u2194': ' bidirectional arrow ',
 
         # Checkmarks and crosses
-        '✓': ' check mark ',
-        '✔': ' check mark ',
-        '✗': ' cross ',
-        '✘': ' cross ',
-        '☑': ' checked box ',
-        '☐': ' unchecked box ',
+        '\u2713': ' check mark ',
+        '\u2714': ' check mark ',
+        '\u2717': ' cross ',
+        '\u2718': ' cross ',
+        '\u2611': ' checked box ',
+        '\u2610': ' unchecked box ',
 
         # Math symbols
-        '×': ' times ',
-        '÷': ' divided by ',
-        '±': ' plus or minus ',
-        '≈': ' approximately ',
-        '≠': ' not equal to ',
-        '≤': ' less than or equal to ',
-        '≥': ' greater than or equal to ',
-        '∞': ' infinity ',
+        '\u00d7': ' times ',
+        '\u00f7': ' divided by ',
+        '\u00b1': ' plus or minus ',
+        '\u2248': ' approximately ',
+        '\u2260': ' not equal to ',
+        '\u2264': ' less than or equal to ',
+        '\u2265': ' greater than or equal to ',
+        '\u221e': ' infinity ',
 
         # Legal/copyright
-        '©': ' copyright ',
-        '®': ' registered trademark ',
-        '™': ' trademark ',
+        '\u00a9': ' copyright ',
+        '\u00ae': ' registered trademark ',
+        '\u2122': ' trademark ',
 
         # Misc
-        '•': ', ',
-        '·': ' ',
-        '…': '...',
-        '§': ' section ',
-        '¶': ' paragraph ',
-        '†': '',
-        '‡': '',
-        '°': ' degrees ',
+        '\u2022': ', ',
+        '\u00b7': ' ',
+        '\u2026': '...',
+        '\u00a7': ' section ',
+        '\u00b6': ' paragraph ',
+        '\u2020': '',
+        '\u2021': '',
+        '\u00b0': ' degrees ',
     }
 
     for symbol, replacement in replacements.items():
@@ -327,68 +343,7 @@ def remove_emojis(text: str) -> str:
 # Rule 5: Normalize numbers
 # =============================================================================
 
-# Number word mappings
-ONES = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
-        'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
-        'seventeen', 'eighteen', 'nineteen']
-TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
-SCALES = ['', 'thousand', 'million', 'billion', 'trillion']
-
-ORDINALS = {
-    '1st': 'first', '2nd': 'second', '3rd': 'third', '4th': 'fourth',
-    '5th': 'fifth', '6th': 'sixth', '7th': 'seventh', '8th': 'eighth',
-    '9th': 'ninth', '10th': 'tenth', '11th': 'eleventh', '12th': 'twelfth',
-    '13th': 'thirteenth', '14th': 'fourteenth', '15th': 'fifteenth',
-    '16th': 'sixteenth', '17th': 'seventeenth', '18th': 'eighteenth',
-    '19th': 'nineteenth', '20th': 'twentieth', '21st': 'twenty-first',
-    '22nd': 'twenty-second', '23rd': 'twenty-third', '24th': 'twenty-fourth',
-    '25th': 'twenty-fifth', '26th': 'twenty-sixth', '27th': 'twenty-seventh',
-    '28th': 'twenty-eighth', '29th': 'twenty-ninth', '30th': 'thirtieth',
-    '31st': 'thirty-first',
-}
-
-
-def _number_to_words(n: int) -> str:
-    """Convert an integer to words."""
-    if n == 0:
-        return 'zero'
-
-    if n < 0:
-        return 'negative ' + _number_to_words(-n)
-
-    if n < 20:
-        return ONES[n]
-
-    if n < 100:
-        tens, ones = divmod(n, 10)
-        if ones:
-            return f"{TENS[tens]}-{ONES[ones]}"
-        return TENS[tens]
-
-    if n < 1000:
-        hundreds, remainder = divmod(n, 100)
-        if remainder:
-            return f"{ONES[hundreds]} hundred {_number_to_words(remainder)}"
-        return f"{ONES[hundreds]} hundred"
-
-    # Handle thousands, millions, billions, etc.
-    parts = []
-    scale_idx = 0
-
-    while n > 0:
-        n, chunk = divmod(n, 1000)
-        if chunk:
-            chunk_words = _number_to_words(chunk)
-            if scale_idx > 0:
-                parts.append(f"{chunk_words} {SCALES[scale_idx]}")
-            else:
-                parts.append(chunk_words)
-        scale_idx += 1
-
-    return ' '.join(reversed(parts))
-
-
-def normalize_numbers(text: str) -> str:
+def normalize_numbers(text: str, lang: dict | None = None) -> str:
     """Convert numeric digits to spelled-out words.
 
     Examples:
@@ -396,32 +351,33 @@ def normalize_numbers(text: str) -> str:
     - 100 -> one hundred
     - 2025 -> twenty twenty-five (for years) or two thousand twenty-five
     """
-    # Handle ordinals first (1st, 2nd, 3rd, etc.)
-    for ordinal, word in ORDINALS.items():
+    if lang is None:
+        lang = get_language('en')
+    number_to_words = lang['number_to_words']
+
+    for ordinal, word in lang['ordinals'].items():
         text = re.sub(rf'\b{ordinal}\b', word, text, flags=re.IGNORECASE)
 
-    # Handle standalone numbers (not part of larger constructs)
     def replace_number(match):
         num_str = match.group(0)
         try:
             num = int(num_str)
-            # For 4-digit numbers that look like years (1900-2099), read as two pairs
-            if 1900 <= num <= 2099 and len(num_str) == 4:
+            # English reads years as two pairs: "twenty twenty-five"
+            # German reads years as regular numbers: "zweitausendfunfundzwanzig"
+            if not lang.get('parse_eu_dates') and 1900 <= num <= 2099 and len(num_str) == 4:
                 first_half = num // 100
                 second_half = num % 100
                 if second_half == 0:
-                    return f"{_number_to_words(first_half)} hundred"
+                    return f"{number_to_words(first_half)} hundred"
                 elif second_half < 10:
-                    return f"{_number_to_words(first_half)} oh {_number_to_words(second_half)}"
+                    return f"{number_to_words(first_half)} oh {number_to_words(second_half)}"
                 else:
-                    return f"{_number_to_words(first_half)} {_number_to_words(second_half)}"
-            return _number_to_words(num)
+                    return f"{number_to_words(first_half)} {number_to_words(second_half)}"
+            return number_to_words(num)
         except ValueError:
             return num_str
 
-    # Match standalone numbers (not preceded/followed by other digits or decimal points)
     text = re.sub(r'\b(\d+)\b', replace_number, text)
-
     return text
 
 
@@ -429,23 +385,7 @@ def normalize_numbers(text: str) -> str:
 # Rule 6: Normalize dates
 # =============================================================================
 
-MONTHS = {
-    '01': 'January', '1': 'January',
-    '02': 'February', '2': 'February',
-    '03': 'March', '3': 'March',
-    '04': 'April', '4': 'April',
-    '05': 'May', '5': 'May',
-    '06': 'June', '6': 'June',
-    '07': 'July', '7': 'July',
-    '08': 'August', '8': 'August',
-    '09': 'September', '9': 'September',
-    '10': 'October',
-    '11': 'November',
-    '12': 'December',
-}
-
-
-def normalize_dates(text: str) -> str:
+def normalize_dates(text: str, lang: dict | None = None) -> str:
     """Convert date formats to spoken form.
 
     Examples:
@@ -453,37 +393,47 @@ def normalize_dates(text: str) -> str:
     - 2025-01-15 -> January fifteen, twenty twenty-five
     - 11/12/2025 -> November twelve, twenty twenty-five
     """
+    if lang is None:
+        lang = get_language('en')
+    number_to_words = lang['number_to_words']
+    months = lang['months']
+
     def format_year(year_str: str) -> str:
         year = int(year_str)
-        if 1900 <= year <= 2099:
+        if not lang.get('parse_eu_dates') and 1900 <= year <= 2099:
             first_half = year // 100
             second_half = year % 100
             if second_half == 0:
-                return f"{_number_to_words(first_half)} hundred"
+                return f"{number_to_words(first_half)} hundred"
             elif second_half < 10:
-                return f"{_number_to_words(first_half)} oh {_number_to_words(second_half)}"
+                return f"{number_to_words(first_half)} oh {number_to_words(second_half)}"
             else:
-                return f"{_number_to_words(first_half)} {_number_to_words(second_half)}"
-        return _number_to_words(year)
+                return f"{number_to_words(first_half)} {number_to_words(second_half)}"
+        return number_to_words(year)
 
     def format_day(day_str: str) -> str:
-        day = int(day_str)
-        return _number_to_words(day)
+        return number_to_words(int(day_str))
 
-    # MM/DD/YYYY format (US style)
-    def replace_us_date(match):
-        month, day, year = match.groups()
-        month_name = MONTHS.get(month, month)
-        return f"{month_name} {format_day(day)}, {format_year(year)}"
+    if lang.get('parse_eu_dates'):
+        # DD.MM.YYYY format (European style)
+        def replace_eu_date(match):
+            day, month, year = match.groups()
+            month_name = months.get(month.lstrip('0'), month)
+            return f"{format_day(day)} {month_name}, {format_year(year)}"
+        text = re.sub(r'\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b', replace_eu_date, text)
+    else:
+        # MM/DD/YYYY format (US style)
+        def replace_us_date(match):
+            month, day, year = match.groups()
+            month_name = months.get(month, month)
+            return f"{month_name} {format_day(day)}, {format_year(year)}"
+        text = re.sub(r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b', replace_us_date, text)
 
-    text = re.sub(r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b', replace_us_date, text)
-
-    # YYYY-MM-DD format (ISO style)
+    # YYYY-MM-DD format (ISO style) - both languages
     def replace_iso_date(match):
         year, month, day = match.groups()
-        month_name = MONTHS.get(month, month)
+        month_name = months.get(month, month)
         return f"{month_name} {format_day(day)}, {format_year(year)}"
-
     text = re.sub(r'\b(\d{4})-(\d{2})-(\d{2})\b', replace_iso_date, text)
 
     return text
@@ -493,83 +443,82 @@ def normalize_dates(text: str) -> str:
 # Rule 7: Normalize symbols
 # =============================================================================
 
-def normalize_symbols(text: str) -> str:
+def normalize_symbols(text: str, lang: dict | None = None) -> str:
     """Convert symbols to their spoken equivalents.
 
     Examples:
     - $100 -> one hundred dollars
     - 42% -> forty-two percent
-    - €29.99 -> twenty-nine euros and ninety-nine cents
+    - \u20ac29.99 -> twenty-nine euros and ninety-nine cents
     - & -> and
     - + -> plus
     """
-    # Currency with amounts: $100, €50, £30
+    if lang is None:
+        lang = get_language('en')
+    number_to_words = lang['number_to_words']
+
     def replace_currency(match):
         symbol = match.group(1)
         amount = match.group(2)
+        currency = lang['currency_names'].get(symbol, 'units')
 
-        currency_names = {
-            '$': 'dollars',
-            '€': 'euros',
-            '£': 'pounds',
-            '¥': 'yen',
-        }
-        currency = currency_names.get(symbol, 'units')
-
-        # Handle decimal amounts
         if '.' in amount:
             whole, cents = amount.split('.')
             whole_num = int(whole) if whole else 0
             cents_num = int(cents) if cents else 0
 
             if cents_num > 0:
-                cents_word = 'cents' if symbol in ('$', '€') else 'pence' if symbol == '£' else ''
-                return f"{_number_to_words(whole_num)} {currency} and {_number_to_words(cents_num)} {cents_word}".strip()
-            return f"{_number_to_words(whole_num)} {currency}"
+                cents_word = lang['currency_subunit'].get(symbol, '')
+                return f"{number_to_words(whole_num)} {currency} {lang['and_word']} {number_to_words(cents_num)} {cents_word}".strip()
+            return f"{number_to_words(whole_num)} {currency}"
 
-        return f"{_number_to_words(int(amount))} {currency}"
+        return f"{number_to_words(int(amount))} {currency}"
 
-    text = re.sub(r'([$€£¥])(\d+(?:\.\d{2})?)', replace_currency, text)
+    text = re.sub(r'([$\u20ac\u00a3\u00a5])(\d+(?:\.\d{2})?)', replace_currency, text)
 
-    # Percentage: 42%
     def replace_percent(match):
         num = match.group(1)
         if '.' in num:
             whole, decimal = num.split('.')
-            return f"{_number_to_words(int(whole))} point {' '.join(_number_to_words(int(d)) for d in decimal)} percent"
-        return f"{_number_to_words(int(num))} percent"
+            return f"{number_to_words(int(whole))} {lang['point_word']} {' '.join(number_to_words(int(d)) for d in decimal)} {lang['percent_word']}"
+        return f"{number_to_words(int(num))} {lang['percent_word']}"
 
     text = re.sub(r'(\d+(?:\.\d+)?)\s*%', replace_percent, text)
 
-    # Time: 9:30 PM
     def replace_time(match):
         hour = int(match.group(1))
         minute = int(match.group(2))
         period = match.group(3).lower().replace('.', '') if match.group(3) else ''
 
-        if minute == 0:
-            time_str = f"{_number_to_words(hour)} o'clock"
-        elif minute < 10:
-            time_str = f"{_number_to_words(hour)} oh {_number_to_words(minute)}"
+        if lang.get('parse_eu_dates'):
+            # German time: "neun Uhr drei\u00dfig"
+            if minute == 0:
+                time_str = f"{number_to_words(hour)} {lang['oclock']}"
+            else:
+                time_str = f"{number_to_words(hour)} {lang['oclock']} {number_to_words(minute)}"
         else:
-            time_str = f"{_number_to_words(hour)} {_number_to_words(minute)}"
+            # English time: "nine thirty p m"
+            if minute == 0:
+                time_str = f"{number_to_words(hour)} {lang['oclock']}"
+            elif minute < 10:
+                time_str = f"{number_to_words(hour)} oh {number_to_words(minute)}"
+            else:
+                time_str = f"{number_to_words(hour)} {number_to_words(minute)}"
 
-        if period:
-            time_str += f" {period[0]} {period[1]}"
+            if period:
+                time_str += f" {period[0]} {period[1]}"
 
         return time_str
 
     text = re.sub(r'(\d{1,2}):(\d{2})\s*(AM|PM|am|pm|a\.m\.|p\.m\.)?', replace_time, text)
 
-    # Simple symbol replacements
-    text = text.replace(' & ', ' and ')
-    text = text.replace('&', ' and ')
-    text = re.sub(r'(?<=[a-zA-Z])\+(?=[a-zA-Z])', ' plus ', text)  # C++ style
-    text = re.sub(r'\s\+\s', ' plus ', text)  # standalone +
-    text = text.replace(' = ', ' equals ')
-    text = text.replace('@', ' at ')
-    text = text.replace('#', ' number ')
-    text = text.replace(' / ', ' slash ')
+    # Configurable symbol replacements
+    for old, new in lang['symbol_replacements']:
+        text = text.replace(old, new)
+
+    # Plus handling (same in both languages)
+    text = re.sub(r'(?<=[a-zA-Z])\+(?=[a-zA-Z])', ' plus ', text)
+    text = re.sub(r'\s\+\s', ' plus ', text)
 
     return text
 
@@ -578,37 +527,7 @@ def normalize_symbols(text: str) -> str:
 # Rule 8: Normalize acronyms
 # =============================================================================
 
-# Common acronyms that should be spelled out letter by letter
-LETTER_ACRONYMS = {
-    'FBI', 'CIA', 'NSA', 'USA', 'UK', 'EU', 'UN', 'NATO', 'CEO', 'CFO', 'CTO',
-    'AI', 'ML', 'API', 'CPU', 'GPU', 'RAM', 'ROM', 'USB', 'HTML', 'CSS', 'URL',
-    'PDF', 'FAQ', 'DIY', 'CEO', 'VP', 'HR', 'IT', 'PR', 'QA', 'R&D', 'ROI',
-    'GDP', 'GPA', 'IQ', 'EQ', 'PhD', 'MBA', 'BA', 'BS', 'MS', 'MD', 'JD',
-    'ASAP', 'FYI', 'BTW', 'IMO', 'TBD', 'TBA', 'ETA', 'RSVP',
-    'GPS', 'ATM', 'PIN', 'ID', 'VIP', 'RSVP', 'PS', 'TV', 'DVD', 'CD',
-    'LLM', 'NLP', 'GPT', 'CNN', 'RNN', 'SaaS', 'IoT', 'VR', 'AR',
-}
-
-# Acronyms that should be expanded to full words
-EXPANDED_ACRONYMS = {
-    'etc': 'et cetera',
-    'vs': 'versus',
-    'ie': 'that is',
-    'i.e': 'that is',
-    'eg': 'for example',
-    'e.g': 'for example',
-    'approx': 'approximately',
-    'govt': 'government',
-    'dept': 'department',
-    'inc': 'incorporated',
-    'corp': 'corporation',
-    'ltd': 'limited',
-    'assn': 'association',
-    'intl': 'international',
-}
-
-
-def normalize_acronyms(text: str) -> str:
+def normalize_acronyms(text: str, lang: dict | None = None) -> str:
     """Convert acronyms to speakable form.
 
     Examples:
@@ -616,19 +535,16 @@ def normalize_acronyms(text: str) -> str:
     - AI -> A I
     - etc. -> et cetera
     """
-    # Expand known acronyms to full words
-    for abbrev, expansion in EXPANDED_ACRONYMS.items():
-        # Escape any special regex chars in the abbreviation (like dots)
+    if lang is None:
+        lang = get_language('en')
+
+    for abbrev, expansion in lang['expanded_acronyms'].items():
         escaped = re.escape(abbrev)
-        # Match with optional period after (consume the period if present)
         text = re.sub(rf'\b{escaped}\.', expansion, text, flags=re.IGNORECASE)
         text = re.sub(rf'\b{escaped}\b', expansion, text, flags=re.IGNORECASE)
 
-    # Convert letter acronyms to spaced letters
-    for acronym in LETTER_ACRONYMS:
+    for acronym in lang['letter_acronyms']:
         spaced = ' '.join(acronym.upper())
-        # Case SENSITIVE match - only match uppercase acronyms, not common words like "it"
-        # Use negative lookahead to exclude possessives/contractions like "IT's"
         text = re.sub(rf'\b{acronym}\b(?!\')', spaced, text)
 
     return text
@@ -638,21 +554,22 @@ def normalize_acronyms(text: str) -> str:
 # Rule 9: Flatten lists
 # =============================================================================
 
-def flatten_lists(text: str) -> str:
+def flatten_lists(text: str, lang: dict | None = None) -> str:
     """Convert bullet/numbered lists to flowing prose.
 
     Transforms:
-    - Bullet points (*, -, •) to numbered prose
+    - Bullet points (*, -, \u2022) to numbered prose
     - Numbered lists (1., 2.) to prose
     """
+    if lang is None:
+        lang = get_language('en')
     lines = text.split('\n')
     result = []
     list_items = []
     in_list = False
 
     for line in lines:
-        # Check if line is a list item
-        list_match = re.match(r'^[\s]*[-*•]\s+(.+)$', line)
+        list_match = re.match(r'^[\s]*[-*\u2022]\s+(.+)$', line)
         numbered_match = re.match(r'^[\s]*\d+[.)]\s+(.+)$', line)
 
         if list_match or numbered_match:
@@ -660,42 +577,150 @@ def flatten_lists(text: str) -> str:
             item = list_match.group(1) if list_match else numbered_match.group(1)
             list_items.append(item)
         else:
-            # If we were in a list, convert and output it
             if in_list and list_items:
-                prose = _list_to_prose(list_items)
+                prose = _list_to_prose(list_items, lang)
                 result.append(prose)
                 list_items = []
                 in_list = False
             result.append(line)
 
-    # Handle list at end of text
     if list_items:
-        prose = _list_to_prose(list_items)
+        prose = _list_to_prose(list_items, lang)
         result.append(prose)
 
     return '\n'.join(result)
 
 
-def _list_to_prose(items: List[str]) -> str:
+def _list_to_prose(items: List[str], lang: dict | None = None) -> str:
     """Convert list items to prose format."""
+    if lang is None:
+        lang = get_language('en')
     if len(items) == 1:
         return items[0]
 
-    ordinals = ['Firstly', 'Secondly', 'Thirdly', 'Fourthly', 'Fifthly',
-                'Sixthly', 'Seventhly', 'Eighthly', 'Ninthly', 'Tenthly']
+    ordinals = lang['list_ordinals']
+    overflow = lang['list_overflow']
 
     prose_parts = []
     for i, item in enumerate(items):
         if i < len(ordinals):
             prose_parts.append(f"{ordinals[i]}, {item.lower() if item[0].isupper() and not item[1:2].isupper() else item}")
         else:
-            prose_parts.append(f"Additionally, {item.lower() if item[0].isupper() and not item[1:2].isupper() else item}")
+            prose_parts.append(f"{overflow}, {item.lower() if item[0].isupper() and not item[1:2].isupper() else item}")
 
     return ' '.join(prose_parts)
 
 
 # =============================================================================
-# Rule 10: Chunk text
+# Rule 10: Flatten tables
+# =============================================================================
+
+def flatten_tables(text: str, lang: dict | None = None) -> str:
+    """Convert Markdown tables to speech-friendly prose.
+
+    Generates an intro describing the columns and row count, followed by
+    each row as a sentence with column labels.
+
+    Example input:
+        | Model | Score |
+        |-------|-------|
+        | GPT-4 | 95 |
+        | Claude | 92 |
+
+    Example output:
+        Here is a table that contains the following columns: Model and Score
+        and 2 rows. I am now going to read you the rows of the table:
+        Model: GPT-4. Score: 95.
+        Model: Claude. Score: 92.
+    """
+    if lang is None:
+        lang = get_language('en')
+    lines = text.split('\n')
+    result = []
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
+
+        if '|' in line and i + 1 < len(lines):
+            next_line = lines[i + 1]
+            if re.match(r'^[\s]*\|[\s\-:|]+\|[\s]*$', next_line):
+                headers = _parse_table_row(line)
+                if headers:
+                    i += 2
+
+                    data_rows = []
+                    while i < len(lines) and '|' in lines[i]:
+                        row_line = lines[i]
+                        if re.match(r'^[\s]*\|[\s\-:|]+\|[\s]*$', row_line):
+                            break
+                        values = _parse_table_row(row_line)
+                        if values:
+                            data_rows.append(values)
+                        i += 1
+
+                    table_prose = _table_to_prose(headers, data_rows, lang)
+                    result.append(table_prose)
+                    continue
+
+        result.append(line)
+        i += 1
+
+    return '\n'.join(result)
+
+
+def _parse_table_row(line: str) -> List[str]:
+    """Parse a markdown table row into cells."""
+    # Remove leading/trailing pipes and split
+    line = line.strip()
+    if line.startswith('|'):
+        line = line[1:]
+    if line.endswith('|'):
+        line = line[:-1]
+
+    cells = [cell.strip() for cell in line.split('|')]
+    return cells
+
+
+def _format_column_list(headers: List[str], lang: dict | None = None) -> str:
+    """Format column names as a natural list (a, b, and c)."""
+    if lang is None:
+        lang = get_language('en')
+    headers = [h for h in headers if h]
+    if len(headers) == 0:
+        return ""
+    if len(headers) == 1:
+        return headers[0]
+    and_word = lang['and_word']
+    if len(headers) == 2:
+        return f"{headers[0]} {and_word} {headers[1]}"
+    return ', '.join(headers[:-1]) + f', {and_word} {headers[-1]}'
+
+
+def _table_row_to_prose(headers: List[str], values: List[str]) -> str:
+    """Convert a table row to prose using headers as labels."""
+    parts = []
+    for header, value in zip(headers, values):
+        if header and value:
+            parts.append(f"{header}: {value}")
+
+    return '. '.join(parts) + '.'
+
+
+def _table_to_prose(headers: List[str], data_rows: List[List[str]], lang: dict | None = None) -> str:
+    """Convert a full table to prose with intro and rows."""
+    if lang is None:
+        lang = get_language('en')
+    row_count = len(data_rows)
+    row_word = lang['table_row_singular'] if row_count == 1 else lang['table_row_plural']
+    column_list = _format_column_list(headers, lang)
+    intro = lang['table_intro'].format(columns=column_list, count=row_count, row_word=row_word)
+    row_lines = [_table_row_to_prose(headers, values) for values in data_rows]
+    return intro + '\n' + '\n'.join(row_lines)
+
+
+# =============================================================================
+# Rule 11: Chunk text
 # =============================================================================
 
 def chunk_text(text: str, max_chars: int = 900) -> List[str]:
@@ -758,60 +783,53 @@ def chunk_text(text: str, max_chars: int = 900) -> List[str]:
 # =============================================================================
 
 class SpeechTextConverter:
-    """Convert text to speech-friendly format.
+    """Convert text to speech-friendly format."""
 
-    Applies all normalization rules in the correct order.
-    """
-
-    def __init__(self, chunk_size: int = 900):
+    def __init__(self, chunk_size: int = 900, lang: str = 'en'):
         """Initialize converter.
 
         Args:
             chunk_size: Maximum characters per chunk (default 900)
+            lang: Language code ('en' or 'de', default 'en')
         """
         self.chunk_size = chunk_size
+        self.lang = get_language(lang)
 
     def convert(self, text: str) -> str:
-        """Apply all normalization rules to text.
+        """Apply all normalization rules to text."""
+        lang = self.lang
 
-        Returns a single string with all transformations applied.
-        """
-        # 1. Strip markup
+        text = remove_code_blocks(text, lang)
         text = strip_html(text)
         text = strip_markdown(text)
         text = remove_parenthetical(text)
-
-        # 2. Normalize whitespace
         text = normalize_whitespace(text)
-
-        # 3. Remove dangerous punctuation
         text = remove_dangerous_punctuation(text)
-
-        # 4. Strip control characters and weird Unicode
         text = strip_control_characters(text)
         text = remove_emojis(text)
         text = replace_special_unicode(text)
-
-        # 5-7. Normalize dates, symbols, numbers (in this order to handle $ before numbers)
-        text = normalize_dates(text)
-        text = normalize_symbols(text)
-        text = normalize_numbers(text)
-
-        # 8. Normalize acronyms
-        text = normalize_acronyms(text)
-
-        # 9. Flatten lists
-        text = flatten_lists(text)
-
-        # Final whitespace cleanup
+        text = normalize_dates(text, lang)
+        text = normalize_symbols(text, lang)
+        text = normalize_numbers(text, lang)
+        text = normalize_acronyms(text, lang)
+        text = flatten_lists(text, lang)
+        text = flatten_tables(text, lang)
         text = normalize_whitespace(text)
 
         return text
 
     def convert_and_chunk(self, text: str) -> List[str]:
-        """Apply all normalization rules and split into chunks.
-
-        Returns a list of text chunks, each under chunk_size characters.
-        """
+        """Apply all normalization rules and split into chunks."""
         text = self.convert(text)
         return chunk_text(text, self.chunk_size)
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+    parser = argparse.ArgumentParser(description='Convert text to speech-friendly format')
+    parser.add_argument('--lang', default='en', choices=['en', 'de'],
+                        help='Language (default: en)')
+    args = parser.parse_args()
+    text = sys.stdin.read()
+    print(SpeechTextConverter(lang=args.lang).convert(text))
