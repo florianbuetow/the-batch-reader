@@ -87,7 +87,7 @@ def extract_article_text(html: str, url: str) -> tuple[str, str]:
     return title, text
 
 
-def fetch_and_convert(url: str, output_dir: Path) -> Path:
+def fetch_and_convert(url: str, output_dir: Path, lang: str = 'en') -> Path:
     """Fetch URL and convert to speech-friendly text.
 
     Args:
@@ -129,7 +129,7 @@ def fetch_and_convert(url: str, output_dir: Path) -> Path:
 
     # Convert to speech-friendly format
     print("Converting to speech-friendly format...")
-    converter = SpeechTextConverter()
+    converter = SpeechTextConverter(lang=lang)
     speech_text = converter.convert(full_text)
 
     # Generate output filename
@@ -166,6 +166,12 @@ def main():
         default='data/output/misc',
         help='Output directory (default: data/output/misc)'
     )
+    parser.add_argument(
+        '-l', '--lang',
+        default='en',
+        choices=['en', 'de'],
+        help='Language for speech conversion (default: en)'
+    )
 
     args = parser.parse_args()
 
@@ -174,7 +180,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Fetch and convert
-    output_path = fetch_and_convert(args.url, output_dir)
+    output_path = fetch_and_convert(args.url, output_dir, lang=args.lang)
 
     print("\nDone!")
 

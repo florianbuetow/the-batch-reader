@@ -1,4 +1,4 @@
-.PHONY: help init run crawl format bundle fetch test clean
+.PHONY: help init run crawl format bundle fetch convert test clean
 
 help:
 	@echo ""
@@ -7,7 +7,7 @@ help:
 	@echo "  crawl      Download new articles"
 	@echo "  format     Convert to speech-friendly text"
 	@echo "  bundle     Combine speech-friendly text into 6-month bundles"
-	@echo "  fetch      Fetch and convert a URL (use: make fetch URL=...)"
+	@echo "  fetch      Fetch and convert a URL (use: make fetch URL=... [LANG=de])"
 	@echo "  test       Run tests"
 	@echo "  clean      Remove cached/temp files"
 	@echo ""
@@ -45,8 +45,19 @@ ifndef URL
 	@echo ""
 	@exit 1
 endif
+ifdef LANG
+	@uv run src/fetch_article.py "$(URL)" --lang "$(LANG)"
+else
 	@uv run src/fetch_article.py "$(URL)"
+endif
 	@echo ""
+
+convert:
+ifdef LANG
+	@uv run src/speech_text.py --lang "$(LANG)"
+else
+	@uv run src/speech_text.py
+endif
 
 test:
 	@echo ""
