@@ -9,25 +9,26 @@ Crawls Andrew Ng's "The Batch" newsletter and generates 6-month transcript bundl
 ## Commands
 
 ```bash
-make help               # Show all targets
-make init               # Setup: create dirs, sync deps
-make run                # Run full pipeline: init, crawl, format
-make crawl              # Download new articles
-make format             # Convert to speech-friendly text
-make bundle             # Combine speech-friendly text into 6-month bundles
-make fetch URL=<url>    # Fetch and convert a one-off URL
-make test               # Run all tests
-make clean              # Remove cached/temp files
+just help               # Show all targets
+just init               # Setup: create dirs, sync deps
+just run                # Run full pipeline: init, crawl, format, bundle
+just crawl              # Download new articles
+just format             # Convert to speech-friendly text
+just bundle             # Combine speech-friendly text into 6-month bundles
+just fetch <url>        # Fetch and convert a one-off URL
+just fetch <url> <lang> # Fetch with language (e.g. de)
+just test               # Run all tests
+just clean              # Remove cached/temp files
 ```
 
 ## Python Execution
 
-**Always use the Makefile** - never run `uv`, `python`, `python3`, or `pip` directly.
+**Always use the justfile** - never run `uv`, `python`, `python3`, or `pip` directly.
 
 ```bash
-make help    # Show all available commands
-make init    # Setup project and install dependencies
-make test    # Run tests
+just help    # Show all available commands
+just init    # Setup project and install dependencies
+just test    # Run tests
 ```
 
 ## Architecture
@@ -71,7 +72,7 @@ Fetches and converts a single article from any URL. Uses `requests` and `Beautif
 
 ### Post-Processing Hook (`hook.sh`)
 
-Called by `make bundle` after generating files. Default behavior on macOS:
+Called by `just bundle` after generating files. Default behavior on macOS:
 copies output files to iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs/Elevenreader/Andrew Ng - The Batch/`).
 
 ## Data Organization
@@ -91,7 +92,7 @@ data/output/
 
 - **ALWAYS write unit tests** for bug fixes and new features
 - Add tests to `tests/test_speech_text.py`
-- Run `make test` to verify all tests pass
+- Run `just test` to verify all tests pass
 - Never skip test creation - if you fixed a bug, write a test that would have caught it
 
 ## Git Commit Guidelines
