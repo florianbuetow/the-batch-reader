@@ -6,6 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 2026-05-09
+
+### Added
+
+- Dash-to-comma conversion for em dashes, en dashes, and double-dashes.
+- Auto-capitalization of the first word after sentence-ending punctuation.
+- Added `--skip-acronyms` flag to `fetch` command.
+
+### Changed
+
+- Converter writes directly to a target file instead of stdout.
+- The `convert` command now takes `<input>` and `<output>` file arguments.
+
+### Fixed
+
+- Joined mid-sentence line breaks into continuous paragraphs.
+
 ## 2026-04-20
 
 ### Changed
