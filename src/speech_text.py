@@ -174,7 +174,8 @@ def normalize_whitespace(text: str) -> str:
 
     - Convert \\r\\n and \\r to \\n
     - Collapse runs of spaces to single spaces
-    - Keep single blank line between paragraphs
+    - Join mid-sentence line breaks into continuous text
+    - Keep blank lines as paragraph separators
     - Strip leading/trailing whitespace from lines
     """
     # Normalize line endings
@@ -188,7 +189,22 @@ def normalize_whitespace(text: str) -> str:
 
     # Strip leading/trailing whitespace from each line
     lines = [line.strip() for line in text.split('\n')]
-    text = '\n'.join(lines)
+
+    # Join lines within paragraphs (single newlines become spaces,
+    # blank lines stay as paragraph separators)
+    paragraphs = []
+    current = []
+    for line in lines:
+        if line == '':
+            if current:
+                paragraphs.append(' '.join(current))
+                current = []
+            paragraphs.append('')
+        else:
+            current.append(line)
+    if current:
+        paragraphs.append(' '.join(current))
+    text = '\n'.join(paragraphs)
 
     # Collapse 3+ newlines to 2 (single blank line between paragraphs)
     text = re.sub(r'\n{3,}', '\n\n', text)
@@ -265,7 +281,7 @@ def strip_control_characters(text: str) -> str:
 def replace_special_unicode(text: str) -> str:
     """Replace special Unicode symbols with word equivalents.
 
-    Handles arrows, checkmarks, math symbols, etc.
+    Handles dashes, arrows, checkmarks, math symbols, etc.
     """
     replacements = {
         # Arrows
@@ -300,6 +316,10 @@ def replace_special_unicode(text: str) -> str:
         '\u00ae': ' registered trademark ',
         '\u2122': ' trademark ',
 
+        # Dashes
+        '\u2014': ', ',   # em dash
+        '\u2013': ', ',   # en dash
+
         # Misc
         '\u2022': ', ',
         '\u00b7': ' ',
@@ -314,7 +334,18 @@ def replace_special_unicode(text: str) -> str:
     for symbol, replacement in replacements.items():
         text = text.replace(symbol, replacement)
 
+    text = re.sub(r'--+', ',', text)
+
     return text
+
+
+def capitalize_after_punctuation(text: str) -> str:
+    """Capitalize the first letter after sentence-ending punctuation."""
+    return re.sub(
+        r'([.?!:])\s+([a-z])',
+        lambda m: m.group(1) + ' ' + m.group(2).upper(),
+        text,
+    )
 
 
 def remove_emojis(text: str) -> str:
@@ -785,15 +816,17 @@ def chunk_text(text: str, max_chars: int = 900) -> List[str]:
 class SpeechTextConverter:
     """Convert text to speech-friendly format."""
 
-    def __init__(self, chunk_size: int = 900, lang: str = 'en'):
+    def __init__(self, chunk_size: int = 900, lang: str = 'en', skip_acronyms: bool = False):
         """Initialize converter.
 
         Args:
             chunk_size: Maximum characters per chunk (default 900)
             lang: Language code ('en' or 'de', default 'en')
+            skip_acronyms: Skip acronym normalization (default False)
         """
         self.chunk_size = chunk_size
         self.lang = get_language(lang)
+        self.skip_acronyms = skip_acronyms
 
     def convert(self, text: str) -> str:
         """Apply all normalization rules to text."""
@@ -811,10 +844,12 @@ class SpeechTextConverter:
         text = normalize_dates(text, lang)
         text = normalize_symbols(text, lang)
         text = normalize_numbers(text, lang)
-        text = normalize_acronyms(text, lang)
+        if not self.skip_acronyms:
+            text = normalize_acronyms(text, lang)
         text = flatten_lists(text, lang)
         text = flatten_tables(text, lang)
         text = normalize_whitespace(text)
+        text = capitalize_after_punctuation(text)
 
         return text
 
@@ -828,8 +863,15 @@ if __name__ == "__main__":
     import argparse
     import sys
     parser = argparse.ArgumentParser(description='Convert text to speech-friendly format')
+    parser.add_argument('input', help='Input text file')
+    parser.add_argument('output', help='Output file path')
     parser.add_argument('--lang', default='en', choices=['en', 'de'],
                         help='Language (default: en)')
+    parser.add_argument('--skip-acronyms', action='store_true',
+                        help='Skip acronym normalization')
     args = parser.parse_args()
-    text = sys.stdin.read()
-    print(SpeechTextConverter(lang=args.lang).convert(text))
+    with open(args.input, 'r', encoding='utf-8') as f:
+        text = f.read()
+    result = SpeechTextConverter(lang=args.lang, skip_acronyms=args.skip_acronyms).convert(text)
+    with open(args.output, 'w', encoding='utf-8') as f:
+        f.write(result)

@@ -87,7 +87,7 @@ def extract_article_text(html: str, url: str) -> tuple[str, str]:
     return title, text
 
 
-def fetch_and_convert(url: str, output_dir: Path, lang: str = 'en') -> Path:
+def fetch_and_convert(url: str, output_dir: Path, lang: str = 'en', skip_acronyms: bool = False) -> Path:
     """Fetch URL and convert to speech-friendly text.
 
     Args:
@@ -129,7 +129,7 @@ def fetch_and_convert(url: str, output_dir: Path, lang: str = 'en') -> Path:
 
     # Convert to speech-friendly format
     print("Converting to speech-friendly format...")
-    converter = SpeechTextConverter(lang=lang)
+    converter = SpeechTextConverter(lang=lang, skip_acronyms=skip_acronyms)
     speech_text = converter.convert(full_text)
 
     # Generate output filename
@@ -172,6 +172,11 @@ def main():
         choices=['en', 'de'],
         help='Language for speech conversion (default: en)'
     )
+    parser.add_argument(
+        '--skip-acronyms',
+        action='store_true',
+        help='Skip acronym normalization'
+    )
 
     args = parser.parse_args()
 
@@ -180,7 +185,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Fetch and convert
-    output_path = fetch_and_convert(args.url, output_dir, lang=args.lang)
+    output_path = fetch_and_convert(args.url, output_dir, lang=args.lang, skip_acronyms=args.skip_acronyms)
 
     print("\nDone!")
 

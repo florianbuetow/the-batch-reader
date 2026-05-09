@@ -5,6 +5,7 @@ Each test uses examples from text-to-speech best practices.
 
 import pytest
 from src.speech_text import (
+    remove_code_blocks,
     strip_markdown,
     strip_html,
     remove_parenthetical,
@@ -18,6 +19,7 @@ from src.speech_text import (
     normalize_symbols,
     normalize_acronyms,
     flatten_lists,
+    flatten_tables,
     chunk_text,
     SpeechTextConverter,
 )
@@ -63,15 +65,41 @@ class TestStripMarkdown:
         # Example from docs: Remove backticks `like this`
         assert strip_markdown("Use `code` here") == "Use code here"
 
-    def test_removes_code_blocks(self):
-        """Remove code blocks ```code```."""
-        input_text = "Before\n```python\nprint('hello')\n```\nAfter"
-        expected = "Before\n\nAfter"
-        assert strip_markdown(input_text) == expected
+    def test_does_not_handle_code_blocks(self):
+        """Code blocks are handled by remove_code_blocks(), not strip_markdown()."""
+        # strip_markdown expects code blocks to already be removed
+        input_text = "Before\nsome code\nAfter"
+        result = strip_markdown(input_text)
+        assert "Before" in result
+        assert "After" in result
 
     def test_removes_strikethrough(self):
         """Remove strikethrough ~~text~~."""
         assert strip_markdown("This is ~~deleted~~ text") == "This is deleted text"
+
+
+class TestRemoveCodeBlocks:
+    """Tests for remove_code_blocks function."""
+
+    def test_replaces_code_blocks_with_placeholder(self):
+        """Replace code blocks with a placeholder message."""
+        input_text = "Before\n```python\nprint('hello')\n```\nAfter"
+        result = remove_code_blocks(input_text)
+        assert "print" not in result
+        assert "Before" in result
+        assert "After" in result
+        assert "Skipping code block" in result
+
+    def test_handles_multiple_code_blocks(self):
+        """Handle multiple code blocks in document."""
+        input_text = "Start\n```\ncode1\n```\nMiddle\n```\ncode2\n```\nEnd"
+        result = remove_code_blocks(input_text)
+        assert result.count("Skipping code block") == 2
+        assert "code1" not in result
+        assert "code2" not in result
+        assert "Start" in result
+        assert "Middle" in result
+        assert "End" in result
 
 
 class TestStripHtml:
@@ -168,9 +196,9 @@ class TestNormalizeWhitespace:
     """Tests for normalize_whitespace function."""
 
     def test_converts_line_endings(self):
-        """Convert \\r\\n and \\r to \\n."""
-        assert normalize_whitespace("line1\r\nline2") == "line1\nline2"
-        assert normalize_whitespace("line1\rline2") == "line1\nline2"
+        """Convert \\r\\n and \\r to \\n, join single lines within paragraph."""
+        assert normalize_whitespace("line1\r\nline2") == "line1 line2"
+        assert normalize_whitespace("line1\rline2") == "line1 line2"
 
     def test_collapses_multiple_spaces(self):
         """Collapse runs of spaces to single space."""
@@ -183,9 +211,9 @@ class TestNormalizeWhitespace:
         assert normalize_whitespace(input_text) == expected
 
     def test_strips_line_whitespace(self):
-        """Strip leading/trailing whitespace from lines."""
+        """Strip leading/trailing whitespace and join lines within paragraph."""
         input_text = "  line1  \n  line2  "
-        expected = "line1\nline2"
+        expected = "line1 line2"
         assert normalize_whitespace(input_text) == expected
 
     def test_replaces_tabs(self):
@@ -504,7 +532,104 @@ class TestFlattenLists:
 
 
 # =============================================================================
-# Rule 10: Chunk text
+# Rule 10: Flatten tables
+# =============================================================================
+
+class TestFlattenTables:
+    """Tests for flatten_tables function.
+
+    Markdown tables should be converted to speech-friendly prose,
+    with an intro describing the columns and row count, followed by row data.
+    """
+
+    def test_simple_table(self):
+        """Convert a simple markdown table to prose."""
+        input_text = """| Name | Age |
+|------|-----|
+| Alice | 30 |
+| Bob | 25 |"""
+        result = flatten_tables(input_text)
+
+        # Should not contain table syntax
+        assert "|" not in result
+        assert "---" not in result
+
+        # Should have intro with columns and row count
+        assert "Here is a table" in result
+        assert "Name" in result
+        assert "Age" in result
+        assert "2 rows" in result
+
+        # Should contain the data in prose form
+        assert "Alice" in result
+        assert "Bob" in result
+        assert "30" in result
+        assert "25" in result
+
+    def test_model_comparison_table(self):
+        """Convert a model comparison table to readable prose."""
+        input_text = """| Model | Embedding Dim | Strengths | Best Use Case |
+|-------|--------------|-----------|---------------|
+| DINOv2-ViT-B/14 | 768 | Best visual similarity | Image matching |
+| CLIP ViT-L/14 | 768 | Text plus image | Multimodal queries |"""
+        result = flatten_tables(input_text)
+
+        # Should not contain table syntax
+        assert "|" not in result
+        assert "---" not in result
+
+        # Should have intro listing all columns
+        assert "Here is a table" in result
+        assert "Model" in result
+        assert "Embedding Dim" in result
+        assert "Strengths" in result
+        assert "Best Use Case" in result
+        assert "2 rows" in result
+
+        # Should contain the row data
+        assert "DINOv2-ViT-B/14" in result
+        assert "CLIP ViT-L/14" in result
+        assert "768" in result
+        assert "Best visual similarity" in result
+        assert "Multimodal queries" in result
+
+    def test_preserves_non_table_text(self):
+        """Preserve text that isn't a table."""
+        input_text = "This is normal text without any tables."
+        assert flatten_tables(input_text) == input_text
+
+    def test_table_with_surrounding_text(self):
+        """Handle table with text before and after."""
+        input_text = """Here is some intro text.
+
+| Header1 | Header2 |
+|---------|---------|
+| Value1 | Value2 |
+
+And some conclusion text."""
+        result = flatten_tables(input_text)
+
+        assert "Here is some intro text" in result
+        assert "And some conclusion text" in result
+        assert "Value1" in result
+        assert "Value2" in result
+        assert "|" not in result
+
+    def test_single_row_table(self):
+        """Handle table with single data row."""
+        input_text = """| Key | Value |
+|-----|-------|
+| name | test |"""
+        result = flatten_tables(input_text)
+
+        assert "|" not in result
+        assert "1 row" in result
+        assert "name" in result
+        assert "test" in result
+
+
+# =============================================================================
+# Rule 11: Chunk text
 # =============================================================================
 
 class TestChunkText:
@@ -570,7 +695,7 @@ Source: [example.com/report](https://example.com/report).
         # Check key conversions
         assert "twenty twenty-five" in result
         assert "forty-two percent" in result
-        assert "example.com/report" in result  # Link text preserved
+        assert "Example.com/report" in result  # Link text preserved, capitalized after colon
         assert "Note" in result
         assert "section" in result
         assert "[" not in result

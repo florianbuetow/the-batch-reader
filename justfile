@@ -34,7 +34,7 @@ help:
     @printf "  %-38s %s\n" "format" "Convert to speech-friendly text"
     @printf "  %-38s %s\n" "bundle" "Combine transcripts into 6-month bundles"
     @printf "  %-38s %s\n" "fetch <url> [lang]" "Fetch and convert a single URL"
-    @printf "  %-38s %s\n" "convert [lang]" "Convert text to speech-friendly format"
+    @printf "  %-38s %s\n" "convert <input> <output> [lang]" "Convert text to speech-friendly format"
     @echo ""
     @printf "\033[0;33mCI & Testing:\033[0m\n"
     @printf "  %-38s %s\n" "test" "Run all tests"
@@ -113,16 +113,16 @@ fetch url lang="":
     printf "\033[0;32m✓ Fetch complete\033[0m\n"
     echo ""
 
-# Convert text to speech-friendly format (usage: just convert [lang])
-convert lang="":
+# Convert text to speech-friendly format (usage: just convert <input> <output> [lang])
+convert input output lang="":
     #!/usr/bin/env bash
     set -e
     echo ""
     printf "\033[0;34m=== Converting Text ===\033[0m\n"
     if [ -n "{{lang}}" ]; then
-        uv run src/speech_text.py --lang "{{lang}}" --skip-acronyms
+        uv run src/speech_text.py "{{input}}" "{{output}}" --lang "{{lang}}" --skip-acronyms
     else
-        uv run src/speech_text.py --skip-acronyms
+        uv run src/speech_text.py "{{input}}" "{{output}}" --skip-acronyms
     fi
     printf "\033[0;32m✓ Convert complete\033[0m\n"
     echo ""

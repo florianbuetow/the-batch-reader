@@ -1,5 +1,7 @@
 # Andrews Batch Reader
 
+![Made with AI](https://img.shields.io/badge/Made%20with-AI-333333?labelColor=f00) ![Verified by Humans](https://img.shields.io/badge/Verified%20by-Humans-333333?labelColor=brightgreen)
+
 Crawls [Andrew Ng's "The Batch" newsletter](https://www.deeplearning.ai/the-batch/tag/letters/) and generates 6-month transcript bundles optimized for text-to-speech services (such as ElevenLabs), so you can listen to them in a batch.
 
 ## Repository Structure
